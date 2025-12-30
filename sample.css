@@ -1,0 +1,12 @@
+/* Inventory table: Default (e.g. first column remains centered) */
+.inventory-table td,
+.inventory-table th {
+  text-align: center;
+}
+
+/* Inventory table: Second column left-aligned */
+.inventory-table td:nth-child(2),
+.inventory-table th:nth-child(2) {
+  text-align: left;
+  padding-left: 4px;   /* Min */
+}
