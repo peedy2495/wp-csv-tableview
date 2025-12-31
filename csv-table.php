@@ -24,7 +24,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 function sct_csv_table_shortcode( $atts ) {
 	$atts = shortcode_atts( array(
 		'src'           => '',
-		'header'        => '',
+		'header'        => '1',
 		'delimiter'     => '',
 		'class'         => '',
 		'max_rows'      => '',
@@ -343,7 +343,8 @@ function sct_render_field_delimiter() {
 
 function sct_render_field_header() {
 	$opts = get_option( 'sct_settings', array() );
-	$checked = ! empty( $opts['header'] ) ? 'checked' : '';
+	// Default to checked when option not yet configured
+	$checked = isset( $opts['header'] ) ? ( ! empty( $opts['header'] ) ? 'checked' : '' ) : 'checked';
 	echo '<label><input type="checkbox" name="sct_settings[header]" value="1" ' . $checked . ' /> Treat first row as header by default</label>';
 	echo '<p class="description">This setting is a default only; shortcode attribute <code>header</code> overrides this.</p>';
 }
