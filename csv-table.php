@@ -395,3 +395,25 @@ function sct_plugin_action_links( $links ) {
 	return $links;
 }
 add_filter( 'plugin_action_links_' . plugin_basename( __FILE__ ), 'sct_plugin_action_links' );
+
+/**
+ * Debug helper: reset plugin options and transients on activation.
+ * Use only for debugging; this runs once when plugin is activated.
+ */
+function sct_debug_reset_on_activation() {
+	// delete stored settings
+	delete_option( 'sct_settings' );
+
+	// remove transients created by this plugin (pattern: sct_csv_...)
+	global $wpdb;
+	$like1 = $wpdb->esc_like( '_transient_sct_csv_' ) . '%';
+	$wpdb->query( $wpdb->prepare( "DELETE FROM {$wpdb->options} WHERE option_name LIKE %s", $like1 ) );
+	$like2 = $wpdb->esc_like( '_transient_timeout_sct_csv_' ) . '%';
+	$wpdb->query( $wpdb->prepare( "DELETE FROM {$wpdb->options} WHERE option_name LIKE %s", $like2 ) );
+
+	// Also clear object cache to remove any cached transient values in some setups
+	if ( function_exists( 'wp_cache_flush' ) ) {
+		wp_cache_flush();
+	}
+}
+register_activation_hook( __FILE__, 'sct_debug_reset_on_activation' );
