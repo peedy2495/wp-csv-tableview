@@ -482,19 +482,23 @@ function sct_render_field_default_sort_col() {
 	$opts = get_option( 'sct_settings', array() );
 	$val = isset( $opts['default_sort_col'] ) ? esc_attr( $opts['default_sort_col'] ) : '';
 	$disabled = empty( $opts['enable_sorting'] ) ? 'disabled' : '';
+	echo '<div style="margin-left:24px">';
 	echo '<input class="sct-sort-dependent" type="number" min="0" name="sct_settings[default_sort_col]" value="' . $val . '" ' . $disabled . ' />';
 	echo '<p class="description">Zero-based column index to sort by by default (leave empty for none).</p>';
+	echo '</div>';
 }
 
 function sct_render_field_default_sort_order() {
 	$opts = get_option( 'sct_settings', array() );
 	$val = isset( $opts['default_sort_order'] ) ? $opts['default_sort_order'] : 'asc';
 	$disabled = empty( $opts['enable_sorting'] ) ? 'disabled' : '';
+	echo '<div style="margin-left:24px">';
 	echo '<select class="sct-sort-dependent" name="sct_settings[default_sort_order]" ' . $disabled . '>';
 	echo '<option value="asc"' . selected( $val, 'asc', false ) . '>Ascending</option>';
 	echo '<option value="desc"' . selected( $val, 'desc', false ) . '>Descending</option>';
 	echo '</select>';
 	echo '<p class="description">Default sort direction when a default sort column is set.</p>';
+	echo '</div>';
 }
 
 function sct_render_field_header() {
