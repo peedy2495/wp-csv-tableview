@@ -28,6 +28,8 @@ function sct_csv_table_shortcode( $atts ) {
 		'delimiter'     => ',',
 		'class'         => '',
 		'max_rows'      => 500,
+		'max_mb'        => 2,    // maximum CSV size in megabytes (0 = unlimited)
+		'restrict_host' => '1',  // '1' to allow only same-host CSVs
 		'cache_minutes' => 5,
 	), $atts, 'csv_table' );
 
@@ -41,16 +43,34 @@ function sct_csv_table_shortcode( $atts ) {
 	if ( $delimiter === '' ) {
 		$delimiter = ',';
 	}
-	$table_class = sanitize_html_class( $atts['class'] ) ? ' ' . sanitize_html_class( $atts['class'] ) : '';
+	// sanitize multiple classes correctly
+	$classes = array_filter( array_map( 'sanitize_html_class', preg_split( '/\s+/', trim( $atts['class'] ) ) ) );
+	$table_class = $classes ? ' ' . implode( ' ', $classes ) : '';
 	$max_rows = intval( $atts['max_rows'] ) > 0 ? intval( $atts['max_rows'] ) : 500;
+	$max_mb = intval( $atts['max_mb'] );
+	$restrict_host = intval( $atts['restrict_host'] ) === 1;
 	$cache_minutes = intval( $atts['cache_minutes'] ) >= 0 ? intval( $atts['cache_minutes'] ) : 5;
 
 	// Use transient to cache fetches briefly
-	$transient_key = 'sct_csv_' . md5( $src . '|' . $delimiter . '|' . $max_rows );
+	$transient_key = 'sct_csv_' . md5( $src . '|' . $delimiter . '|' . $max_rows . '|' . $max_mb );
 	$cached = get_transient( $transient_key );
 
 	if ( false === $cached ) {
-		$response = wp_remote_get( $src, array( 'timeout' => 15 ) );
+		// Validate URL scheme and optionally host before fetching
+		$scheme = wp_parse_url( $src, PHP_URL_SCHEME );
+		if ( ! in_array( $scheme, array( 'http', 'https' ), true ) ) {
+			return '<p><em>CSV Table: invalid URL scheme.</em></p>';
+		}
+		if ( $restrict_host ) {
+			$req_host = wp_parse_url( $src, PHP_URL_HOST );
+			$home_host = wp_parse_url( home_url(), PHP_URL_HOST );
+			if ( $req_host && $home_host && $req_host !== $home_host ) {
+				return '<p><em>CSV Table: external hosts not allowed.</em></p>';
+			}
+		}
+
+		// Fetch with conservative HTTP options
+		$response = wp_remote_get( $src, array( 'timeout' => 15, 'redirection' => 3, 'sslverify' => true ) );
 		if ( is_wp_error( $response ) ) {
 			return '<p><em>CSV Table: failed to fetch CSV - ' . esc_html( $response->get_error_message() ) . '</em></p>';
 		}
@@ -59,6 +79,17 @@ function sct_csv_table_shortcode( $atts ) {
 			return '<p><em>CSV Table: failed to fetch CSV - HTTP ' . esc_html( $code ) . '</em></p>';
 		}
 		$body = wp_remote_retrieve_body( $response );
+		// Enforce maximum size check (Content-Length header and actual body length)
+		if ( $max_mb > 0 ) {
+			$cl = wp_remote_retrieve_header( $response, 'content-length' );
+			$max_bytes = $max_mb * 1024 * 1024;
+			if ( $cl && intval( $cl ) > 0 && intval( $cl ) > $max_bytes ) {
+				return '<p><em>CSV Table: CSV too large.</em></p>';
+			}
+			if ( strlen( $body ) > $max_bytes ) {
+				return '<p><em>CSV Table: CSV exceeds allowed size.</em></p>';
+			}
+		}
 		if ( empty( $body ) ) {
 			return '<p><em>CSV Table: empty CSV.</em></p>';
 		}
