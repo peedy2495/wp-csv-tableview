@@ -31,6 +31,9 @@ function sct_csv_table_shortcode( $atts ) {
 		'max_mb'        => '', // maximum CSV size in megabytes (0 = unlimited)
 		'restrict_host' => '1',  // '1' to allow only same-host CSVs
 		'cache_minutes' => '',
+		// optional sort defaults (0-based column index and 'asc'|'desc')
+		'sort_col'      => '',
+		'sort_order'    => '',
 	), $atts, 'csv_table' );
 
 	if ( empty( $atts['src'] ) ) {
@@ -41,6 +44,29 @@ function sct_csv_table_shortcode( $atts ) {
 	$header = intval( $atts['header'] ) === 1;
 	// We'll allow admin options to provide defaults when shortcode omits attributes.
 	$opts = get_option( 'sct_settings', array() );
+
+	// Determine default sort: shortcode attribute has priority; settings provide optional defaults
+	$default_sort_col = null;
+	$default_sort_order = 'asc';
+	$shortcode_default = false;
+	if ( $atts['sort_col'] !== '' ) {
+		$sc = intval( $atts['sort_col'] );
+		if ( $sc >= 0 ) {
+			$default_sort_col = $sc;
+			$shortcode_default = true;
+		}
+	}
+	if ( ! $shortcode_default && isset( $opts['default_sort_col'] ) && $opts['default_sort_col'] !== '' ) {
+		$sc = intval( $opts['default_sort_col'] );
+		if ( $sc >= 0 ) {
+			$default_sort_col = $sc;
+		}
+	}
+	if ( $atts['sort_order'] !== '' && in_array( strtolower( $atts['sort_order'] ), array( 'asc', 'desc' ), true ) ) {
+		$default_sort_order = strtolower( $atts['sort_order'] );
+	} elseif ( isset( $opts['default_sort_order'] ) && in_array( strtolower( $opts['default_sort_order'] ), array( 'asc', 'desc' ), true ) ) {
+		$default_sort_order = strtolower( $opts['default_sort_order'] );
+	}
 
 	// delimiter: shortcode attr > option > default
 	if ( $atts['delimiter'] !== '' ) {
@@ -187,6 +213,34 @@ function sct_csv_table_shortcode( $atts ) {
 		return '<p><em>CSV Table: no rows to display.</em></p>';
 	}
 
+	// Parse sorting parameters: consider plugin settings and shortcode defaults
+	$sort_col = null;
+	$sort_order = 'asc';
+	$enable_sorting = isset( $opts['enable_sorting'] ) && $opts['enable_sorting'];
+	$effective_enable_sorting = $enable_sorting;
+	// Querystring overrides defaults
+	if ( isset( $_GET['col'] ) ) {
+		$sc = intval( $_GET['col'] );
+		if ( $sc >= 0 ) {
+			$sort_col = $sc;
+		}
+	}
+	if ( isset( $_GET['order'] ) && in_array( strtolower( $_GET['order'] ), array( 'asc', 'desc' ), true ) ) {
+		$sort_order = strtolower( $_GET['order'] );
+	}
+	// If no query params present, apply defaults:
+	// - shortcode `sort_col` always acts as a default for this shortcode instance
+	// - settings `default_sort_col` apply only when `enable_sorting` is on
+	if ( $sort_col === null ) {
+		if ( $shortcode_default && $default_sort_col !== null ) {
+			$sort_col = $default_sort_col;
+			$sort_order = $default_sort_order;
+		} elseif ( $enable_sorting && $default_sort_col !== null ) {
+			$sort_col = $default_sort_col;
+			$sort_order = $default_sort_order;
+		}
+	}
+
 	// Build table HTML
 	$html = '<div class="sct-csv-table-wrap" style="overflow:auto;">';
 	$html .= '<table class="sct-csv-table' . esc_attr( $table_class ) . '" cellspacing="0" cellpadding="4" border="0">';
@@ -195,16 +249,52 @@ function sct_csv_table_shortcode( $atts ) {
 	if ( $header ) {
 		$head_row = $rows[0];
 		$html .= '<thead><tr>';
-		foreach ( $head_row as $cell ) {
-			$html .= '<th>' . esc_html( $cell ) . '</th>';
+		foreach ( $head_row as $idx => $cell ) {
+			$indicator = '';
+			$th_content = esc_html( $cell );
+			if ( $effective_enable_sorting ) {
+				if ( $sort_col === $idx ) {
+					$next_order = $sort_order === 'asc' ? 'desc' : 'asc';
+					$indicator = $sort_order === 'asc' ? ' ▲' : ' ▼';
+				} else {
+					$next_order = 'asc';
+				}
+				$link = esc_url( add_query_arg( array( 'col' => $idx, 'order' => $next_order ) ) );
+				$th_content = '<a href="' . $link . '">' . $th_content . '</a>';
+			}
+			$html .= '<th>' . $th_content . esc_html( $indicator ) . '</th>';
 		}
 		$html .= '</tr></thead>';
 		$start_index = 1;
 	}
 
+	// Extract body rows for possible sorting
+	$body_rows = array_slice( $rows, $start_index );
+	// If a valid sort column was provided, sort the body rows
+	if ( $sort_col !== null ) {
+		usort( $body_rows, function( $a, $b ) use ( $sort_col, $sort_order ) {
+			$va = isset( $a[ $sort_col ] ) ? $a[ $sort_col ] : '';
+			$vb = isset( $b[ $sort_col ] ) ? $b[ $sort_col ] : '';
+			$va_trim = trim( $va );
+			$vb_trim = trim( $vb );
+			// numeric comparison when both values are numeric
+			if ( is_numeric( $va_trim ) && is_numeric( $vb_trim ) ) {
+				$cmp = $va_trim - $vb_trim;
+			} else {
+				$cmp = strcmp( $va_trim, $vb_trim );
+			}
+			if ( $cmp === 0 ) {
+				return 0;
+			}
+			if ( $sort_order === 'asc' ) {
+				return ( $cmp < 0 ) ? -1 : 1;
+			}
+			return ( $cmp < 0 ) ? 1 : -1;
+		} );
+	}
+
 	$html .= '<tbody>';
-	for ( $i = $start_index; $i < count( $rows ); $i++ ) {
-		$row = $rows[ $i ];
+	foreach ( $body_rows as $row ) {
 		$html .= '<tr>';
 		foreach ( $row as $cell ) {
 			$html .= '<td>' . esc_html( $cell ) . '</td>';
@@ -278,6 +368,30 @@ function sct_register_settings() {
 	);
 
 	add_settings_field(
+		'sct_enable_sorting',
+		'Enable default sorting',
+		'sct_render_field_enable_sorting',
+		'sct-settings',
+		'sct_main_section'
+	);
+
+	add_settings_field(
+		'sct_default_sort_col',
+		'Default sort column',
+		'sct_render_field_default_sort_col',
+		'sct-settings',
+		'sct_main_section'
+	);
+
+	add_settings_field(
+		'sct_default_sort_order',
+		'Default sort order',
+		'sct_render_field_default_sort_order',
+		'sct-settings',
+		'sct_main_section'
+	);
+
+	add_settings_field(
 		'sct_header',
 		'Default has header',
 		'sct_render_field_header',
@@ -303,6 +417,19 @@ function sct_sanitize_settings( $input ) {
 		$out['delimiter'] = substr( trim( $input['delimiter'] ), 0, 1 );
 	}
 	$out['header'] = ! empty( $input['header'] ) ? 1 : 0;
+
+	// Sorting settings
+	$out['enable_sorting'] = ! empty( $input['enable_sorting'] ) ? 1 : 0;
+	if ( isset( $input['default_sort_col'] ) && $input['default_sort_col'] !== '' ) {
+		$out['default_sort_col'] = max( 0, intval( $input['default_sort_col'] ) );
+	} else {
+		$out['default_sort_col'] = '';
+	}
+	if ( isset( $input['default_sort_order'] ) && in_array( strtolower( $input['default_sort_order'] ), array( 'asc', 'desc' ), true ) ) {
+		$out['default_sort_order'] = strtolower( $input['default_sort_order'] );
+	} else {
+		$out['default_sort_order'] = 'asc';
+	}
 	return $out;
 }
 
@@ -339,6 +466,35 @@ function sct_render_field_delimiter() {
 	$val = isset( $opts['delimiter'] ) ? esc_attr( $opts['delimiter'] ) : ',';
 	echo '<input type="text" maxlength="1" name="sct_settings[delimiter]" value="' . $val . '" />';
 	echo '<p class="description">Default single-character delimiter when shortcode omits <code>delimiter</code>.</p>';
+}
+
+function sct_render_field_enable_sorting() {
+	$opts = get_option( 'sct_settings', array() );
+	$checked = isset( $opts['enable_sorting'] ) ? ( ! empty( $opts['enable_sorting'] ) ? 'checked' : '' ) : '';
+	$checked_attr = $checked ? 'checked' : '';
+	echo '<label><input id="sct_enable_sorting" type="checkbox" name="sct_settings[enable_sorting]" value="1" ' . $checked_attr . ' /> Enable default sorting by column</label>';
+	echo '<p class="description">When enabled, the plugin will apply default sorting from the settings or shortcode attributes if no query parameters are present.</p>';
+	// Add small inline script to toggle dependent fields in the settings UI
+	echo "<script>(function(){var cb=document.getElementById('sct_enable_sorting');if(!cb) return;function t(){var els=document.querySelectorAll('.sct-sort-dependent');els.forEach(function(e){e.disabled=!cb.checked;e.style.opacity=cb.checked?'':'0.6';});}cb.addEventListener('change',t);document.addEventListener('DOMContentLoaded',t);t();})();</script>";
+}
+
+function sct_render_field_default_sort_col() {
+	$opts = get_option( 'sct_settings', array() );
+	$val = isset( $opts['default_sort_col'] ) ? esc_attr( $opts['default_sort_col'] ) : '';
+	$disabled = empty( $opts['enable_sorting'] ) ? 'disabled' : '';
+	echo '<input class="sct-sort-dependent" type="number" min="0" name="sct_settings[default_sort_col]" value="' . $val . '" ' . $disabled . ' />';
+	echo '<p class="description">Zero-based column index to sort by by default (leave empty for none).</p>';
+}
+
+function sct_render_field_default_sort_order() {
+	$opts = get_option( 'sct_settings', array() );
+	$val = isset( $opts['default_sort_order'] ) ? $opts['default_sort_order'] : 'asc';
+	$disabled = empty( $opts['enable_sorting'] ) ? 'disabled' : '';
+	echo '<select class="sct-sort-dependent" name="sct_settings[default_sort_order]" ' . $disabled . '>';
+	echo '<option value="asc"' . selected( $val, 'asc', false ) . '>Ascending</option>';
+	echo '<option value="desc"' . selected( $val, 'desc', false ) . '>Descending</option>';
+	echo '</select>';
+	echo '<p class="description">Default sort direction when a default sort column is set.</p>';
 }
 
 function sct_render_field_header() {
