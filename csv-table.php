@@ -83,11 +83,11 @@ function sct_csv_table_shortcode( $atts ) {
 		$cache_minutes = 5;
 	}
 
-	// restrict_host: shortcode attr overrides option; default from option (false)
+	// restrict_host: shortcode attr overrides option; default true when not configured
 	if ( $atts['restrict_host'] !== '' ) {
 		$restrict_host = intval( $atts['restrict_host'] ) === 1;
 	} else {
-		$restrict_host = ! empty( $opts['restrict_host'] );
+		$restrict_host = isset( $opts['restrict_host'] ) ? ! empty( $opts['restrict_host'] ) : true;
 	}
 
 	// header: shortcode attr > option > default(true)
@@ -315,7 +315,8 @@ function sct_render_field_cache_minutes() {
 
 function sct_render_field_restrict_host() {
 	$opts = get_option( 'sct_settings', array() );
-	$checked = ! empty( $opts['restrict_host'] ) ? 'checked' : '';
+	// Default to checked when option not yet configured
+	$checked = isset( $opts['restrict_host'] ) ? ( ! empty( $opts['restrict_host'] ) ? 'checked' : '' ) : 'checked';
 	echo '<label><input type="checkbox" name="sct_settings[restrict_host]" value="1" ' . $checked . ' /> Only allow same-host CSVs by default</label>';
 }
 
@@ -383,3 +384,14 @@ function sct_enqueue_styles() {
 	wp_add_inline_style( 'sct-inline', $css );
 }
 add_action( 'wp_enqueue_scripts', 'sct_enqueue_styles' );
+
+/**
+ * Add a Settings link on the Plugins page for convenience.
+ */
+function sct_plugin_action_links( $links ) {
+	$settings_url = admin_url( 'options-general.php?page=sct-settings' );
+	$settings_link = '<a href="' . esc_url( $settings_url ) . '">Settings</a>';
+	array_unshift( $links, $settings_link );
+	return $links;
+}
+add_filter( 'plugin_action_links_' . plugin_basename( __FILE__ ), 'sct_plugin_action_links' );
