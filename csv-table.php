@@ -24,13 +24,13 @@ if ( ! defined( 'ABSPATH' ) ) {
 function sct_csv_table_shortcode( $atts ) {
 	$atts = shortcode_atts( array(
 		'src'           => '',
-		'header'        => '1',
-		'delimiter'     => ',',
+		'header'        => '',
+		'delimiter'     => '',
 		'class'         => '',
-		'max_rows'      => 500,
-		'max_mb'        => 2,    // maximum CSV size in megabytes (0 = unlimited)
+		'max_rows'      => '',
+		'max_mb'        => '', // maximum CSV size in megabytes (0 = unlimited)
 		'restrict_host' => '1',  // '1' to allow only same-host CSVs
-		'cache_minutes' => 5,
+		'cache_minutes' => '',
 	), $atts, 'csv_table' );
 
 	if ( empty( $atts['src'] ) ) {
@@ -39,17 +39,65 @@ function sct_csv_table_shortcode( $atts ) {
 
 	$src = esc_url_raw( $atts['src'] );
 	$header = intval( $atts['header'] ) === 1;
-	$delimiter = substr( $atts['delimiter'], 0, 1 ); // single char
-	if ( $delimiter === '' ) {
+	// We'll allow admin options to provide defaults when shortcode omits attributes.
+	$opts = get_option( 'sct_settings', array() );
+
+	// delimiter: shortcode attr > option > default
+	if ( $atts['delimiter'] !== '' ) {
+		$delimiter = substr( $atts['delimiter'], 0, 1 ); // single char
+		if ( $delimiter === '' ) {
+			$delimiter = ',';
+		}
+	} elseif ( isset( $opts['delimiter'] ) && $opts['delimiter'] !== '' ) {
+		$delimiter = substr( $opts['delimiter'], 0, 1 );
+	} else {
 		$delimiter = ',';
 	}
 	// sanitize multiple classes correctly
 	$classes = array_filter( array_map( 'sanitize_html_class', preg_split( '/\s+/', trim( $atts['class'] ) ) ) );
 	$table_class = $classes ? ' ' . implode( ' ', $classes ) : '';
-	$max_rows = intval( $atts['max_rows'] ) > 0 ? intval( $atts['max_rows'] ) : 500;
-	$max_mb = intval( $atts['max_mb'] );
-	$restrict_host = intval( $atts['restrict_host'] ) === 1;
-	$cache_minutes = intval( $atts['cache_minutes'] ) >= 0 ? intval( $atts['cache_minutes'] ) : 5;
+	// max_rows: shortcode attr > option > default(500)
+	if ( $atts['max_rows'] !== '' ) {
+		$max_rows = intval( $atts['max_rows'] ) > 0 ? intval( $atts['max_rows'] ) : 500;
+	} elseif ( isset( $opts['max_rows'] ) ) {
+		$max_rows = intval( $opts['max_rows'] ) > 0 ? intval( $opts['max_rows'] ) : 500;
+	} else {
+		$max_rows = 500;
+	}
+
+	// max_mb: shortcode attr > option > default(2)
+	if ( $atts['max_mb'] !== '' ) {
+		$max_mb = intval( $atts['max_mb'] );
+	} elseif ( isset( $opts['max_mb'] ) ) {
+		$max_mb = intval( $opts['max_mb'] );
+	} else {
+		$max_mb = 2;
+	}
+
+	// cache_minutes: shortcode attr takes precedence; else option; else 5
+	if ( $atts['cache_minutes'] !== '' ) {
+		$cache_minutes = intval( $atts['cache_minutes'] ) >= 0 ? intval( $atts['cache_minutes'] ) : 5;
+	} elseif ( isset( $opts['cache_minutes'] ) ) {
+		$cache_minutes = intval( $opts['cache_minutes'] ) >= 0 ? intval( $opts['cache_minutes'] ) : 5;
+	} else {
+		$cache_minutes = 5;
+	}
+
+	// restrict_host: shortcode attr overrides option; default from option (false)
+	if ( $atts['restrict_host'] !== '' ) {
+		$restrict_host = intval( $atts['restrict_host'] ) === 1;
+	} else {
+		$restrict_host = ! empty( $opts['restrict_host'] );
+	}
+
+	// header: shortcode attr > option > default(true)
+	if ( $atts['header'] !== '' ) {
+		$header = intval( $atts['header'] ) === 1;
+	} elseif ( isset( $opts['header'] ) ) {
+		$header = intval( $opts['header'] ) === 1;
+	} else {
+		$header = true;
+	}
 
 	// Use transient to cache fetches briefly
 	$transient_key = 'sct_csv_' . md5( $src . '|' . $delimiter . '|' . $max_rows . '|' . $max_mb );
@@ -174,6 +222,151 @@ function sct_csv_table_shortcode( $atts ) {
 	return $html;
 }
 add_shortcode( 'csv_table', 'sct_csv_table_shortcode' );
+
+/**
+ * Register admin settings and add settings page for plugin defaults.
+ * English-only comments as requested.
+ */
+function sct_register_settings() {
+	register_setting( 'sct_settings_group', 'sct_settings', 'sct_sanitize_settings' );
+
+	add_settings_section(
+		'sct_main_section',
+		'CSV Table Settings',
+		function() { echo '<p>Configure defaults used when shortcode attributes are not provided.</p>'; },
+		'sct-settings'
+	);
+
+	add_settings_field(
+		'sct_cache_minutes',
+		'Cache minutes',
+		'sct_render_field_cache_minutes',
+		'sct-settings',
+		'sct_main_section'
+	);
+
+	add_settings_field(
+		'sct_restrict_host',
+		'Restrict host',
+		'sct_render_field_restrict_host',
+		'sct-settings',
+		'sct_main_section'
+	);
+
+	add_settings_field(
+		'sct_max_rows',
+		'Default max rows',
+		'sct_render_field_max_rows',
+		'sct-settings',
+		'sct_main_section'
+	);
+
+	add_settings_field(
+		'sct_max_mb',
+		'Default max MB',
+		'sct_render_field_max_mb',
+		'sct-settings',
+		'sct_main_section'
+	);
+
+	add_settings_field(
+		'sct_delimiter',
+		'Default delimiter',
+		'sct_render_field_delimiter',
+		'sct-settings',
+		'sct_main_section'
+	);
+
+	add_settings_field(
+		'sct_header',
+		'Default has header',
+		'sct_render_field_header',
+		'sct-settings',
+		'sct_main_section'
+	);
+}
+add_action( 'admin_init', 'sct_register_settings' );
+
+function sct_sanitize_settings( $input ) {
+	$out = array();
+	if ( isset( $input['cache_minutes'] ) ) {
+		$out['cache_minutes'] = max( 0, intval( $input['cache_minutes'] ) );
+	}
+	$out['restrict_host'] = ! empty( $input['restrict_host'] ) ? 1 : 0;
+	if ( isset( $input['max_rows'] ) ) {
+		$out['max_rows'] = max( 0, intval( $input['max_rows'] ) );
+	}
+	if ( isset( $input['max_mb'] ) ) {
+		$out['max_mb'] = max( 0, intval( $input['max_mb'] ) );
+	}
+	if ( isset( $input['delimiter'] ) ) {
+		$out['delimiter'] = substr( trim( $input['delimiter'] ), 0, 1 );
+	}
+	$out['header'] = ! empty( $input['header'] ) ? 1 : 0;
+	return $out;
+}
+
+function sct_render_field_cache_minutes() {
+	$opts = get_option( 'sct_settings', array() );
+	$val = isset( $opts['cache_minutes'] ) ? intval( $opts['cache_minutes'] ) : 5;
+	echo '<input type="number" min="0" name="sct_settings[cache_minutes]" value="' . esc_attr( $val ) . '" />';
+	echo '<p class="description">Set default caching minutes for remote CSV fetches (0 = no cache).</p>';
+}
+
+function sct_render_field_restrict_host() {
+	$opts = get_option( 'sct_settings', array() );
+	$checked = ! empty( $opts['restrict_host'] ) ? 'checked' : '';
+	echo '<label><input type="checkbox" name="sct_settings[restrict_host]" value="1" ' . $checked . ' /> Only allow same-host CSVs by default</label>';
+}
+
+function sct_render_field_max_rows() {
+	$opts = get_option( 'sct_settings', array() );
+	$val = isset( $opts['max_rows'] ) ? intval( $opts['max_rows'] ) : 500;
+	echo '<input type="number" min="0" name="sct_settings[max_rows]" value="' . esc_attr( $val ) . '" />';
+	echo '<p class="description">Default maximum number of rows to display when shortcode omits <code>max_rows</code>.</p>';
+}
+
+function sct_render_field_max_mb() {
+	$opts = get_option( 'sct_settings', array() );
+	$val = isset( $opts['max_mb'] ) ? intval( $opts['max_mb'] ) : 2;
+	echo '<input type="number" min="0" name="sct_settings[max_mb]" value="' . esc_attr( $val ) . '" />';
+	echo '<p class="description">Default maximum CSV size in megabytes when shortcode omits <code>max_mb</code>. Set 0 for unlimited.</p>';
+}
+
+function sct_render_field_delimiter() {
+	$opts = get_option( 'sct_settings', array() );
+	$val = isset( $opts['delimiter'] ) ? esc_attr( $opts['delimiter'] ) : ',';
+	echo '<input type="text" maxlength="1" name="sct_settings[delimiter]" value="' . $val . '" />';
+	echo '<p class="description">Default single-character delimiter when shortcode omits <code>delimiter</code>.</p>';
+}
+
+function sct_render_field_header() {
+	$opts = get_option( 'sct_settings', array() );
+	$checked = ! empty( $opts['header'] ) ? 'checked' : '';
+	echo '<label><input type="checkbox" name="sct_settings[header]" value="1" ' . $checked . ' /> Treat first row as header by default</label>';
+	echo '<p class="description">This setting is a default only; shortcode attribute <code>header</code> overrides this.</p>';
+}
+
+function sct_add_admin_menu() {
+	add_options_page( 'CSV Table', 'CSV Table', 'manage_options', 'sct-settings', 'sct_settings_page' );
+}
+add_action( 'admin_menu', 'sct_add_admin_menu' );
+
+function sct_settings_page() {
+	if ( ! current_user_can( 'manage_options' ) ) {
+		return;
+	}
+	?>
+	<div class="wrap">
+		<h1>CSV Table Settings</h1>
+		<form method="post" action="options.php">
+			<?php settings_fields( 'sct_settings_group' ); ?>
+			<?php do_settings_sections( 'sct-settings' ); ?>
+			<?php submit_button(); ?>
+		</form>
+	</div>
+	<?php
+}
 
 /**
  * Optional: Basic stylesheet when plugin is active (small, non-intrusive).
