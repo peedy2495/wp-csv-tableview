@@ -12,11 +12,18 @@ A simple WordPress plugin for viewing CSV tables
  - `restrict_host`: 1 or 0 — when 1, only same-host CSVs are allowed **(default 1)**.
  - `sort_col`: zero-based column index used as default sort when no `col` query param provided.
  - `sort_order`: `asc` or `desc` default sort order optional used with `sort_col` **(default "asc")**.
+ - `cols`: comma-separated list of columns to display and their order. If the list contains a literal `0`, indices are treated as 0-based; otherwise values are treated as 1-based (e.g. `cols="1,3"` shows first and third column). Duplicate or out-of-range indices are ignored.
 
 ## Example
 ```php
 
 [csv_table src="https://example.com/assets/table.csv" header="1" delimiter="," class="my-table"]
+
+// Show only first and third column (1-based indices)
+[csv_table src="https://example.com/assets/table.csv" cols="1,3" class="my-table"]
+
+// Show columns using explicit 0-based indices
+[csv_table src="https://example.com/assets/table.csv" cols="0,2" class="my-table"]
 
 // Use shortcode defaults for sorting
 [csv_table src="https://example.com/assets/table.csv" sort_col="2" sort_order="desc"]
