@@ -13,8 +13,9 @@ A simple WordPress plugin for viewing CSV tables
  - `sort_col`: zero-based column index used as default sort when no `col` query param provided.
  - `sort_order`: `asc` or `desc` default sort order optional used with `sort_col` **(default "asc")**.
  - `cols`: comma-separated list of columns to display and their order. If the list contains a literal `0`, indices are treated as 0-based; otherwise values are treated as 1-based (e.g. `cols="1,3"` shows first and third column). Duplicate or out-of-range indices are ignored.
+ - `popup_cols`: optional comma-separated list controlling which columns appear in the hover-tooltip and in which order. If the list contains a literal `0`, indices are treated as 0-based; otherwise values are 1-based. When `popup_cols` is omitted, no tooltip will appear.
 
-## Example
+## Examples
 ```php
 
 [csv_table src="https://example.com/assets/table.csv" header="1" delimiter="," class="my-table"]
@@ -30,6 +31,12 @@ A simple WordPress plugin for viewing CSV tables
 
 // Limit rows and bytes
 [csv_table src="/files/data.csv" max_rows="200" max_mb="5"]
+
+// Example: show first and third visible columns, but show tooltip with column 2 then 1
+[csv_table src="https://example.com/assets/table.csv" cols="1,3" popup_cols="2,1"]
+
+// Example (0-based): show columns 0 and 2, and tooltip for 0 then 2
+[csv_table src="https://example.com/assets/table.csv" cols="0,2" popup_cols="0,2"]
 ```
 
 ## Sorting

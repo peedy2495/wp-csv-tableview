@@ -35,6 +35,7 @@ function sct_csv_table_shortcode( $atts ) {
 		'sort_col'      => '',
 		'sort_order'    => '',
 		'cols'          => '',
+		'popup_cols'    => '',
 	), $atts, 'csv_table' );
 
 	if ( empty( $atts['src'] ) ) {
@@ -255,6 +256,29 @@ function sct_csv_table_shortcode( $atts ) {
 		}
 	}
 
+	// Parse optional `popup_cols` attribute to control which columns appear in the hover tooltip
+	// `popup_cols` is a comma-separated list of integers. If the list contains a literal '0',
+	// values are treated as 0-based indices; otherwise values are treated as 1-based.
+	$popup_cols = array();
+	if ( isset( $atts['popup_cols'] ) && trim( $atts['popup_cols'] ) !== '' ) {
+		$parts = preg_split('/\s*,\s*/', trim( $atts['popup_cols'] ) );
+		$has_zero = in_array( '0', $parts, true );
+		foreach ( $parts as $p ) {
+			if ( $p === '' ) {
+				continue;
+			}
+			if ( preg_match('/^-?\d+$/', $p ) ) {
+				$ival = intval( $p );
+				if ( ! $has_zero ) {
+					$ival = max( 0, $ival - 1 );
+				}
+				if ( $ival >= 0 && ! in_array( $ival, $popup_cols, true ) ) {
+					$popup_cols[] = $ival;
+				}
+			}
+		}
+	}
+
 	// Parse sorting parameters: consider plugin settings and shortcode defaults
 	$sort_col = null;
 	$sort_order = 'asc';
@@ -307,6 +331,7 @@ function sct_csv_table_shortcode( $atts ) {
 			}
 			$html .= '<th>' . $th_content . esc_html( $indicator ) . '</th>';
 		}
+
 		$html .= '</tr></thead>';
 		$start_index = 1;
 	}
@@ -338,7 +363,29 @@ function sct_csv_table_shortcode( $atts ) {
 
 	$html .= '<tbody>';
 	foreach ( $body_rows as $row ) {
-		$html .= '<tr>';
+		// prepare popup data if popup_cols is defined; otherwise no tooltip data is attached
+		$cells_json = '';
+		$headers_json = '';
+		if ( ! empty( $popup_cols ) ) {
+			$popup_cells = array();
+			foreach ( $popup_cols as $pcol ) {
+				$popup_cells[] = isset( $row[ $pcol ] ) ? $row[ $pcol ] : '';
+			}
+			// build headers array matching the popup_cols order so labels align with values
+			$popup_headers = array();
+			if ( isset( $head_row ) ) {
+				foreach ( $popup_cols as $pcol ) {
+					$popup_headers[] = isset( $head_row[ $pcol ] ) ? $head_row[ $pcol ] : '';
+				}
+			}
+			$cells_json = wp_json_encode( $popup_cells );
+			$headers_json = wp_json_encode( $popup_headers );
+		}
+		$data_attrs = '';
+		if ( $cells_json !== '' ) {
+			$data_attrs = ' data-cells="' . esc_attr( $cells_json ) . '" data-headers="' . esc_attr( $headers_json ) . '"';
+		}
+		$html .= '<tr' . $data_attrs . '>';
 		foreach ( $display_cols as $col ) {
 			$cell = isset( $row[ $col ] ) ? $row[ $col ] : '';
 			$html .= '<td>' . esc_html( $cell ) . '</td>';
@@ -347,11 +394,23 @@ function sct_csv_table_shortcode( $atts ) {
 	}
 	$html .= '</tbody>';
 
+	// Tooltip container + inline script (hover near cursor showing "Spaltenname: Wert")
 	$html .= '</table>';
+	$html .= '<div id="sct-tooltip" style="display:none;position:absolute;z-index:10000;max-width:320px;background:#fff;border:1px solid #ccc;padding:8px;border-radius:4px;box-shadow:0 4px 12px rgba(0,0,0,0.15);font-size:13px;line-height:1.4;"></div>';
 	if ( count( $rows ) >= $max_rows ) {
 		$html .= '<p style="font-size:0.9em;color:#666;margin-top:6px;">Displayed first ' . intval( $max_rows ) . ' rows.</p>';
 	}
 	$html .= '</div>';
+
+	$html .= <<<'JS'
+<script>(function(){function escapeHtml(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/\"/g,"&quot;").replace(/'/g,"&#39;");}
+var tip=document.getElementById('sct-tooltip');if(!tip){tip=document.createElement('div');tip.id='sct-tooltip';document.body.appendChild(tip);}function showTip(html){tip.innerHTML=html;tip.style.display='block';}
+function hideTip(){tip.style.display='none';}
+document.addEventListener('mouseover', function(e){var node=e.target;while(node&&node.nodeName&&node.nodeName.toLowerCase()!=='tr'){node=node.parentNode;}if(!node) return;var cellsAttr=node.getAttribute&&node.getAttribute('data-cells');if(!cellsAttr) return;try{var cells=JSON.parse(cellsAttr);}catch(err){cells=[];}var headersAttr=node.getAttribute('data-headers')||'[]';try{var headers=JSON.parse(headersAttr);}catch(err){headers=[];}var parts=[];for(var i=0;i<cells.length;i++){var label=(headers[i]!==undefined&&headers[i]!==null&&String(headers[i]).trim()!=='')?String(headers[i]):('Spalte '+(i+1));parts.push('<div style="padding:4px 0;border-bottom:1px solid #eee;"><strong>'+escapeHtml(label)+':</strong> '+escapeHtml(String(cells[i]))+'</div>');}showTip(parts.join(''));}, false);
+document.addEventListener('mousemove', function(e){if(tip.style.display==='none') return;var x=e.clientX+12;var y=e.clientY+12;var docW=document.documentElement.clientWidth;var docH=document.documentElement.clientHeight;var rect=tip.getBoundingClientRect();if(x+rect.width>docW) x=docW-rect.width-12; if(y+rect.height>docH) y=docH-rect.height-12;tip.style.left=(x+window.pageXOffset)+'px';tip.style.top=(y+window.pageYOffset)+'px';}, false);
+document.addEventListener('mouseout', function(e){var node=e.target;while(node&&node.nodeName&&node.nodeName.toLowerCase()!=='tr'){node=node.parentNode;}if(!node){hideTip();return;}var related=e.relatedTarget; if(related){var p=related; while(p&&p.nodeName&&p.nodeName.toLowerCase()!=='tr'){p=p.parentNode;} if(p===node) return;} if(node.getAttribute&&node.getAttribute('data-cells')){hideTip();} }, false);
+})();</script>
+JS;
 
 	return $html;
 }
