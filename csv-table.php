@@ -34,6 +34,7 @@ function sct_csv_table_shortcode( $atts ) {
 		// optional sort defaults (0-based column index and 'asc'|'desc')
 		'sort_col'      => '',
 		'sort_order'    => '',
+		'cols'          => '',
 	), $atts, 'csv_table' );
 
 	if ( empty( $atts['src'] ) ) {
@@ -213,6 +214,47 @@ function sct_csv_table_shortcode( $atts ) {
 		return '<p><em>CSV Table: no rows to display.</em></p>';
 	}
 
+	// Parse optional `cols` attribute to allow selecting and ordering displayed columns.
+	// `cols` is a comma-separated list of integers. If the list contains a literal '0',
+	// values are treated as 0-based indices; otherwise values are treated as 1-based
+	// (so '1' refers to the first column). Duplicate or out-of-range indices are ignored.
+	$display_cols = array();
+	if ( isset( $atts['cols'] ) && trim( $atts['cols'] ) !== '' ) {
+		$parts = preg_split('/\s*,\s*/', trim( $atts['cols'] ) );
+		$has_zero = in_array( '0', $parts, true );
+		foreach ( $parts as $p ) {
+			if ( $p === '' ) {
+				continue;
+			}
+			// allow numeric strings and negative handling via intval
+			if ( preg_match('/^-?\d+$/', $p ) ) {
+				$ival = intval( $p );
+				if ( ! $has_zero ) {
+					// treat as 1-based
+					$ival = max( 0, $ival - 1 );
+				}
+				if ( $ival >= 0 && ! in_array( $ival, $display_cols, true ) ) {
+					$display_cols[] = $ival;
+				}
+			}
+		}
+	}
+	// If no explicit cols provided, default to all columns based on widest row
+	if ( empty( $display_cols ) ) {
+		$max_cols = 0;
+		foreach ( $rows as $r ) {
+			$cnt = is_array( $r ) ? count( $r ) : 0;
+			if ( $cnt > $max_cols ) {
+				$max_cols = $cnt;
+			}
+		}
+		if ( $max_cols > 0 ) {
+			$display_cols = range( 0, $max_cols - 1 );
+		} else {
+			$display_cols = array();
+		}
+	}
+
 	// Parse sorting parameters: consider plugin settings and shortcode defaults
 	$sort_col = null;
 	$sort_order = 'asc';
@@ -249,17 +291,18 @@ function sct_csv_table_shortcode( $atts ) {
 	if ( $header ) {
 		$head_row = $rows[0];
 		$html .= '<thead><tr>';
-		foreach ( $head_row as $idx => $cell ) {
+		foreach ( $display_cols as $col ) {
 			$indicator = '';
+			$cell = isset( $head_row[ $col ] ) ? $head_row[ $col ] : '';
 			$th_content = esc_html( $cell );
 			if ( $effective_enable_sorting ) {
-				if ( $sort_col === $idx ) {
+				if ( $sort_col === $col ) {
 					$next_order = $sort_order === 'asc' ? 'desc' : 'asc';
 					$indicator = $sort_order === 'asc' ? ' ▲' : ' ▼';
 				} else {
 					$next_order = 'asc';
 				}
-				$link = esc_url( add_query_arg( array( 'col' => $idx, 'order' => $next_order ) ) );
+				$link = esc_url( add_query_arg( array( 'col' => $col, 'order' => $next_order ) ) );
 				$th_content = '<a href="' . $link . '">' . $th_content . '</a>';
 			}
 			$html .= '<th>' . $th_content . esc_html( $indicator ) . '</th>';
@@ -296,7 +339,8 @@ function sct_csv_table_shortcode( $atts ) {
 	$html .= '<tbody>';
 	foreach ( $body_rows as $row ) {
 		$html .= '<tr>';
-		foreach ( $row as $cell ) {
+		foreach ( $display_cols as $col ) {
+			$cell = isset( $row[ $col ] ) ? $row[ $col ] : '';
 			$html .= '<td>' . esc_html( $cell ) . '</td>';
 		}
 		$html .= '</tr>';
