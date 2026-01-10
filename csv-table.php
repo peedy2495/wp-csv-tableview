@@ -31,7 +31,7 @@ function sct_csv_table_shortcode( $atts ) {
 		'max_mb'        => '', // maximum CSV size in megabytes (0 = unlimited)
 		'restrict_host' => '1',  // '1' to allow only same-host CSVs
 		'cache_minutes' => '',
-		// optional sort defaults (0-based column index and 'asc'|'desc')
+		// optional sort defaults (accepts 0-based or 1-based in shortcode; '0' forces 0-based)
 		'sort_col'      => '',
 		'sort_order'    => '',
 		'cols'          => '',
@@ -52,10 +52,31 @@ function sct_csv_table_shortcode( $atts ) {
 	$default_sort_order = 'asc';
 	$shortcode_default = false;
 	if ( $atts['sort_col'] !== '' ) {
-		$sc = intval( $atts['sort_col'] );
-		if ( $sc >= 0 ) {
-			$default_sort_col = $sc;
-			$shortcode_default = true;
+		// Allow shortcode to specify 1-based column numbers like `cols`/`popup_cols`.
+		// If the raw value contains a literal '0', treat as 0-based; otherwise treat as 1-based.
+		$raw = trim( $atts['sort_col'] );
+		$parts = preg_split('/\s*,\s*/', $raw );
+		$has_zero = in_array( '0', $parts, true );
+		// find first numeric part
+		$found = null;
+		foreach ( $parts as $p ) {
+			if ( $p === '' ) {
+				continue;
+			}
+			if ( preg_match('/^-?\d+$/', $p ) ) {
+				$found = $p;
+				break;
+			}
+		}
+		if ( $found !== null ) {
+			$sc = intval( $found );
+			if ( ! $has_zero ) {
+				$sc = max( 0, $sc - 1 );
+			}
+			if ( $sc >= 0 ) {
+				$default_sort_col = $sc;
+				$shortcode_default = true;
+			}
 		}
 	}
 	if ( ! $shortcode_default && isset( $opts['default_sort_col'] ) && $opts['default_sort_col'] !== '' ) {

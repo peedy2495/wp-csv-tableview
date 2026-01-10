@@ -10,9 +10,9 @@ A simple WordPress plugin for viewing CSV tables
  - `max_rows`: maximum number of rows to render **(default 500)**.
  - `max_mb`: maximum CSV size in megabytes **(default 2; 0 = unlimited)**.
  - `restrict_host`: 1 or 0 — when 1, only same-host CSVs are allowed **(default 1)**.
- - `sort_col`: zero-based column index used as default sort when no `col` query param provided.
- - `sort_order`: `asc` or `desc` default sort order optional used with `sort_col` **(default "asc")**.
  - `cols`: comma-separated list of columns to display and their order. If the list contains a literal `0`, indices are treated as 0-based; otherwise values are treated as 1-based (e.g. `cols="1,3"` shows first and third column). Duplicate or out-of-range indices are ignored.
+ - `sort_col`: column used as default sort when no `cols` query param provided. If the raw value contains a literal `0` the value(s) are treated as 0-based; otherwise values are treated as 1-based (e.g. `sort_col="2"` refers to the second column). You may provide a comma-separated list but only the first numeric value is used. Use negative or invalid values to disable.
+ - `sort_order`: `asc` or `desc` default sort order optional used with `sort_col` **(default "asc")**.
  - `popup_cols`: optional comma-separated list controlling which columns appear in the hover-tooltip and in which order. If the list contains a literal `0`, indices are treated as 0-based; otherwise values are 1-based. When `popup_cols` is omitted, no tooltip will appear.
 
 ## Examples
@@ -26,8 +26,11 @@ A simple WordPress plugin for viewing CSV tables
 // Show columns using explicit 0-based indices
 [csv_table src="https://example.com/assets/table.csv" cols="0,2" class="my-table"]
 
-// Use shortcode defaults for sorting
+// Use shortcode defaults for sorting (1-based example: sort by second column)
 [csv_table src="https://example.com/assets/table.csv" sort_col="2" sort_order="desc"]
+
+// Use explicit 0-based index (include literal 0 to force 0-based interpretation)
+[csv_table src="https://example.com/assets/table.csv" sort_col="0" sort_order="asc"]
 
 // Limit rows and bytes
 [csv_table src="/files/data.csv" max_rows="200" max_mb="5"]
@@ -41,7 +44,7 @@ A simple WordPress plugin for viewing CSV tables
 
 ## Sorting
  - Query parameters: `?col=<n>&order=<asc|desc>` — sort by zero-based column index.
- - Shortcode attributes: `sort_col` (0-based index) and `sort_order` (`asc` or `desc`) set defaults when no query params are present.
+ - Shortcode attributes: `sort_col` accepts 1-based or 0-based notation like `cols`/`popup_cols` (if the literal `0` appears in the raw attribute it forces 0-based interpretation; otherwise values are treated as 1-based). `sort_order` (`asc` or `desc`) sets the default direction when `sort_col` is used.
  - Settings: enable default sorting and set `default_sort_col` / `default_sort_order` in the plugin settings page.
  - Table headers become clickable when sorting is enabled; clicking toggles ascending/descending and preserves other query parameters.
 
