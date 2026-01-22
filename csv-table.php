@@ -93,13 +93,14 @@ function sct_csv_table_shortcode( $atts ) {
 
 	// delimiter: shortcode attr > option > default
 	if ( $atts['delimiter'] !== '' ) {
-		$delimiter = substr( $atts['delimiter'], 0, 1 ); // single char
-		if ( $delimiter === '' ) {
-			$delimiter = ',';
-		}
+		$delimiter = substr( $atts['delimiter'], 0, 1 );
 	} elseif ( isset( $opts['delimiter'] ) && $opts['delimiter'] !== '' ) {
 		$delimiter = substr( $opts['delimiter'], 0, 1 );
 	} else {
+		$delimiter = ',';
+	}
+	// validate delimiter is a single character
+	if ( ! preg_match( '/^.$/', $delimiter ) ) {
 		$delimiter = ',';
 	}
 	// sanitize multiple classes correctly
@@ -132,12 +133,8 @@ function sct_csv_table_shortcode( $atts ) {
 		$cache_minutes = 5;
 	}
 
-	// restrict_host: shortcode attr overrides option; default true when not configured
-	if ( $atts['restrict_host'] !== '' ) {
-		$restrict_host = intval( $atts['restrict_host'] ) === 1;
-	} else {
-		$restrict_host = isset( $opts['restrict_host'] ) ? ! empty( $opts['restrict_host'] ) : true;
-	}
+	// restrict_host: always enforced; shortcode attr is ignored (security measure)
+	$restrict_host = isset( $opts['restrict_host'] ) ? ! empty( $opts['restrict_host'] ) : true;
 
 	// header: shortcode attr > option > default(true)
 	if ( $atts['header'] !== '' ) {
@@ -149,7 +146,7 @@ function sct_csv_table_shortcode( $atts ) {
 	}
 
 	// Use transient to cache fetches briefly
-	$transient_key = 'sct_csv_' . md5( $src . '|' . $delimiter . '|' . $max_rows . '|' . $max_mb );
+	$transient_key = 'sct_csv_' . md5( $src . '|' . $delimiter . '|' . $max_rows . '|' . $max_mb . '|' . AUTH_SALT );
 	$cached = get_transient( $transient_key );
 
 	if ( false === $cached ) {
@@ -312,8 +309,8 @@ function sct_csv_table_shortcode( $atts ) {
 			$sort_col = $sc;
 		}
 	}
-	if ( isset( $_GET['order'] ) && in_array( strtolower( $_GET['order'] ), array( 'asc', 'desc' ), true ) ) {
-		$sort_order = strtolower( $_GET['order'] );
+	if ( isset( $_GET['order'] ) && in_array( strtolower( sanitize_text_field( wp_unslash( $_GET['order'] ) ) ), array( 'asc', 'desc' ), true ) ) {
+		$sort_order = strtolower( sanitize_text_field( wp_unslash( $_GET['order'] ) ) );
 	}
 	// If no query params present, apply defaults:
 	// - shortcode `sort_col` always acts as a default for this shortcode instance
@@ -424,7 +421,7 @@ function sct_csv_table_shortcode( $atts ) {
 	$html .= '</div>';
 
 	$html .= <<<'JS'
-<script>(function(){function escapeHtml(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/\"/g,"&quot;").replace(/'/g,"&#39;");}
+<script>(function(){function escapeHtml(s){var div=document.createElement('div');div.textContent=String(s);return div.innerHTML.replace(/&/g,"&amp;").replace(/"/g,"&quot;");}
 var tip=document.getElementById('sct-tooltip');if(!tip){tip=document.createElement('div');tip.id='sct-tooltip';document.body.appendChild(tip);}function showTip(html){tip.innerHTML=html;tip.style.display='block';}
 function hideTip(){tip.style.display='none';}
 document.addEventListener('mouseover', function(e){var node=e.target;while(node&&node.nodeName&&node.nodeName.toLowerCase()!=='tr'){node=node.parentNode;}if(!node) return;var cellsAttr=node.getAttribute&&node.getAttribute('data-cells');if(!cellsAttr) return;try{var cells=JSON.parse(cellsAttr);}catch(err){cells=[];}var headersAttr=node.getAttribute('data-headers')||'[]';try{var headers=JSON.parse(headersAttr);}catch(err){headers=[];}var parts=[];for(var i=0;i<cells.length;i++){var label=(headers[i]!==undefined&&headers[i]!==null&&String(headers[i]).trim()!=='')?String(headers[i]):('Spalte '+(i+1));parts.push('<div style="padding:4px 0;border-bottom:1px solid #eee;"><strong>'+escapeHtml(label)+':</strong> '+escapeHtml(String(cells[i]))+'</div>');}showTip(parts.join(''));}, false);
