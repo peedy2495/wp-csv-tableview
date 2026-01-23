@@ -99,8 +99,8 @@ function sct_csv_table_shortcode( $atts ) {
 	} else {
 		$delimiter = ',';
 	}
-	// validate delimiter is a single character
-	if ( ! preg_match( '/^.$/', $delimiter ) ) {
+	// validate delimiter is a single character (defense-in-depth)
+	if ( strlen( $delimiter ) !== 1 ) {
 		$delimiter = ',';
 	}
 	// sanitize multiple classes correctly
@@ -309,8 +309,11 @@ function sct_csv_table_shortcode( $atts ) {
 			$sort_col = $sc;
 		}
 	}
-	if ( isset( $_GET['order'] ) && in_array( strtolower( sanitize_text_field( wp_unslash( $_GET['order'] ) ) ), array( 'asc', 'desc' ), true ) ) {
-		$sort_order = strtolower( sanitize_text_field( wp_unslash( $_GET['order'] ) ) );
+	if ( isset( $_GET['order'] ) ) {
+		$sanitized_order = strtolower( sanitize_text_field( wp_unslash( $_GET['order'] ) ) );
+		if ( in_array( $sanitized_order, array( 'asc', 'desc' ), true ) ) {
+			$sort_order = $sanitized_order;
+		}
 	}
 	// If no query params present, apply defaults:
 	// - shortcode `sort_col` always acts as a default for this shortcode instance
