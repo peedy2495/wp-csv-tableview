@@ -1,0 +1,208 @@
+# WordPress Plugin .gitignore
+# ===========================
+# WordPress Core (should not be in plugin repo)
+#
+/wp-content/
+/wp-admin/
+/wp-includes/
+/index.php
+/license.txt
+/readme.html
+/wp-activate.php
+/wp-blog-header.php
+/wp-comments-post.php
+/wp-config-sample.php
+/wp-cron.php
+/wp-links-opml.php
+/wp-load.php
+/wp-login.php
+/wp-mail.php
+/wp-settings.php
+/wp-signup.php
+/wp-trackback.php
+/xmlrpc.php
+# Plugin Specific
+# ==============
+# Development and Build Files
+/node_modules/
+/vendor/
+/build/
+/dist/
+/.nyc_output/
+/coverage/
+# Package Manager Files
+/package-lock.json
+/yarn.lock
+/composer.lock
+/composer.phar
+# IDE and Editor Files
+#
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+# Configuration Files (if they contain sensitive data)
+#
+/config.local.php
+/config.dev.php
+/config.prod.php
+/.env
+/.env.local
+/.env.development.local
+/.env.test.local
+/.env.production.local
+# Logs and Temporary Files
+#
+*.log
+/logs/
+/tmp/
+/temp/
+/cache/
+# Testing and Quality Assurance
+#
+/tests/coverage/
+/phpunit.xml
+/.phpunit.result.cache
+/phpcs.xml
+.phpcs.cache
+.eslintcache
+.stylelintcache
+# WordPress Specific Development
+#
+/wp-cli.local.yml
+/.wp-cli/
+/local-config.php
+/local-db.php
+# Deployment and CI/CD
+#
+/.github/workflows/cache/
+/.gitlab-ci.yml
+.travis.yml
+/bitbucket-pipelines.yml
+Jenkinsfile
+# Documentation Build
+#
+/docs/build/
+/docs/_build/
+/.vitepress/dist/
+# Asset Optimization
+#
+*.min.js
+*.min.css
+*.css.map
+*.js.map
+/sass-cache/
+# Backup and Archive Files
+#
+*.zip
+*.tar.gz
+*.rar
+*.7z
+/backup/
+/backups/
+# Database Files
+#
+*.sql
+*.sqlite
+*.sqlite3
+*.db
+# Operating System Files
+#
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+# Local Development Overrides
+#
+/local-config.js
+/local-config.php
+/wp-config-local.php
+# Performance and Monitoring
+#
+/newrelic.ini
+/blackfire.yml
+.tugboat
+# Security and Vulnerability Scanning
+#
+/.security-scan/
+/vulnerability-reports/
+# WordPress Plugin Specific
+#
+/plugin-deactivation.log
+/error_log
+/debug.log
+# Local WordPress Installations
+#
+/wordpress/
+/wp/
+/local-wp/
+/dev-wp/
+# Multisite Specific
+#
+/wp-content/blogs.dir/
+/wp-content/uploads/
+# Custom Upload Directories (if they exist)
+#
+/uploads/
+/files/
+# Language and Translation Files (except source)
+#
+*.mo
+*.pot (keep if it's the source template)
+/languages/*.mo
+# Release and Distribution
+#
+/release/
+/dist/
+/*.zip
+/*.tar.gz
+# Local Environment Files
+#
+/.dockerignore
+docker-compose.override.yml
+docker-compose.local.yml
+# Node.js Development
+#
+.npm
+.eslintcache
+.nyc_output
+# PHP Development
+#
+.php_cs.cache
+.php-cs-fixer.cache
+# Miscellaneous
+#
+*.tmp
+*.temp
+*.bak
+*.orig
+*.rej
+~$*.docx
+~$*.xlsx
+~$*.pptx
+# Keep these files (exceptions to above rules)
+#
+!README.md
+!CHANGELOG.md
+!LICENSE
+!composer.json
+!package.json
+!*.php
+!*.css
+!*.js
+!*.txt
+!*.md
+!/.gitignore
+!/assets/
+!/includes/
+!/languages/*.pot
