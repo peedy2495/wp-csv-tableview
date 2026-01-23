@@ -1,23 +1,27 @@
 # wp-csv-tableview
 A simple WordPress plugin for viewing CSV tables
 
+## Installation
+1. Download the plugin files.
+2. Upload to your WordPress plugins directory.
+3. Activate the plugin via the WordPress admin.
+
 ## Shortcode attributes
- - `src (required)`: URL to the CSV file (http(s) or site-relative).
- - `header`: 1 or 0 - treat first row as header **(default 1)**.
- - `delimiter`: single character CSV delimiter **(default ",")**.
- - `class`: space-separated extra CSS classes for the table element.
- - `cache_minutes`: integer minutes to cache fetch results **(default 5)**
- - `max_rows`: maximum number of rows to render **(default 500)**.
- - `max_mb`: maximum CSV size in megabytes **(default 2; 0 = unlimited)**.
- - `restrict_host`: 1 or 0 — when 1, only same-host CSVs are allowed **(default 1)**.
- - `cols`: comma-separated list of columns to display and their order. If the list contains a literal `0`, indices are treated as 0-based; otherwise values are treated as 1-based (e.g. `cols="1,3"` shows first and third column). Duplicate or out-of-range indices are ignored.
- - `sort_col`: column used as default sort when no `cols` query param provided. If the raw value contains a literal `0` the value(s) are treated as 0-based; otherwise values are treated as 1-based (e.g. `sort_col="2"` refers to the second column). You may provide a comma-separated list but only the first numeric value is used. Use negative or invalid values to disable.
- - `sort_order`: `asc` or `desc` default sort order optional used with `sort_col` **(default "asc")**.
- - `popup_cols`: optional comma-separated list controlling which columns appear in the hover-tooltip and in which order. If the list contains a literal `0`, indices are treated as 0-based; otherwise values are 1-based. When `popup_cols` is omitted, no tooltip will appear.
+- `src` (required): URL to the CSV file (http(s) or site-relative).
+- `header`: 1 or 0 - treat first row as header (default 1).
+- `delimiter`: single character CSV delimiter (default ",").
+- `class`: space-separated extra CSS classes for the table element.
+- `cache_minutes`: integer minutes to cache fetch results (default 5).
+- `max_rows`: maximum number of rows to render (default 500).
+- `max_mb`: maximum CSV size in megabytes (default 2; 0 = unlimited).
+- `restrict_host`: 1 or 0 — when 1, only same-host CSVs are allowed (default 1).
+- `cols`: comma-separated list of columns to display and their order. If the list contains a literal `0`, indices are treated as 0-based; otherwise values are treated as 1-based (e.g. `cols="1,3"` shows first and third column). Duplicate or out-of-range indices are ignored.
+- `sort_col`: column used as default sort when no `cols` query param provided. If the raw value contains a literal `0` the value(s) are treated as 0-based; otherwise values are treated as 1-based (e.g. `sort_col="2"` refers to the second column). You may provide a comma-separated list but only the first numeric value is used. Use negative or invalid values to disable.
+- `sort_order`: `asc` or `desc` default sort order optional used with `sort_col` (default "asc").
+- `popup_cols`: optional comma-separated list controlling which columns appear in the hover-tooltip and in which order. If the list contains a literal `0`, indices are treated as 0-based; otherwise values are 1-based. When `popup_cols` is omitted, no tooltip will appear.
 
 ## Examples
 ```php
-
 [csv_table src="https://example.com/assets/table.csv" header="1" delimiter="," class="my-table"]
 
 // Show only first and third column (1-based indices)
@@ -48,7 +52,7 @@ A simple WordPress plugin for viewing CSV tables
  - Settings: enable default sorting and set `default_sort_col` / `default_sort_order` in the plugin settings page.
  - Table headers become clickable when sorting is enabled; clicking toggles ascending/descending and preserves other query parameters.
 
-## Examples
+### Sorting Examples
 ```php
 [csv_table src="https://example.com/assets/table.csv" sort_col="2" sort_order="desc"]
 // or via URL: /page-with-table/?col=2&order=desc
